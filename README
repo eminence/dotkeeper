@@ -1,0 +1,11 @@
+dotconfig
+=========
+
+Manages your personal config files (.vimrc, .bashrc, etc), across all of your machines.
+
+Stores all files in a git repo, but doesn't force you to keep a seperate working dir.
+
+Can even manage itself.
+
+
+
