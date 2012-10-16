@@ -20,8 +20,7 @@ def git_helper(args, git_dir=None, stdout=None, stdin=None):
     "Launces git subprocesses, taking care of error checking and stuff"
 
     if git_dir is None:
-        global GIT_DIR
-        git_dir = GIT_DIR
+        raise Exception("git_dir can't be None")
 
     sout = None
     if stdout in (HASH, STR):
@@ -86,7 +85,8 @@ def cat_file(hash, git_dir=None):
     return contents
 
 def commit_tree(tree, msg, parent="HEAD", git_dir=None):
-    "Commits a tree.  Does NOT update the HEAD ref"
+    """Commits a tree.  Does NOT update the HEAD ref
+    If parent is None, then create a root commit"""
     xtra_args = []
     if parent:
         xtra_args += ["-p", parent]
@@ -123,54 +123,30 @@ def init(base_dir="~/.dotkeeper"):
 
     base_dir = os.path.expanduser(base_dir)
     repo_dir = os.path.join(base_dir, "repo")
-    global GIT_DIR
     GIT_DIR = repo_dir
 
     if not os.path.exists(repo_dir):
         os.makedirs(repo_dir)
-    git_helper(["init"])
+    git_helper(["init"], git_dir=GIT_DIR)
 
-    # create new, empty config file.  this will be the first commit into the repo
     config_file = os.path.join(base_dir, "config")
-    with open(config_file, "w") as f:
-        f.write("# empty config file")
+    if os.path.exists(config_file):
+        print "Config file already exists!"
+    else:
+        # create new, empty config file.  this will be the first commit into the repo
+        with open(config_file, "w") as f:
+            f.write("# empty config file\n")
 
-    config_hash = hash_object(config_file)
+    add_to_index(config_file, git_dir=GIT_DIR)
 
-    # create tree for the .dotkeeper directory
-    tree = dict(config=dict(
-        name="config", 
-        hash=config_hash,
-        mode=stat.S_IFREG | stat.S_IRUSR | stat.S_IWUSR,
-        type="blob"))
+    root_tree = write_tree(git_dir=GIT_DIR)
+    print "root_tree is %r" % root_tree
 
-    dotkeeper_hash = mk_tree(tree)
-   
-    # tree for the /home directory, just contains .dotkeeper tree
-    tree = {".dotkeeper": dict(
-        name=".dotkeeper",
-        type="tree",
-        mode=stat.S_IFDIR,
-        hash = dotkeeper_hash
-        )}
-
-    home_hash = mk_tree(tree)
-
-    # tree for the root (/) directory.  just contains the home tree
-    tree = {"home": dict(
-        name="home",
-        type="tree",
-        mode=stat.S_IFDIR,
-        hash=home_hash
-        )}
+    commit_hash = commit_tree(root_tree, "Initial commit", parent=None, git_dir=GIT_DIR)
+    print "commit_hash is %r" % commit_hash
     
-    root_tree = mk_tree(tree)
-    print "root_tree is:", root_tree
-
-    commit_hash = commit_tree(root_tree, "Initial commit")
-    print "commit hash is:", commit_hash
-    
-    git_helper(["update-ref", "HEAD", commit_hash])
+    git_helper(["update-ref", "HEAD", commit_hash], git_dir=GIT_DIR)
+    print "Done!"
 
 def find_file(file, tree, git_dir=None):
     "recurses through the given tree, trying to find the blob hash for the given filepath"
@@ -200,7 +176,7 @@ def add_to_index(path, git_dir=None):
     path_g = fix_path_to_git(path)
 
     # then add to index 
-    git_helper(["update-index", "--add", "--cacheinfo", "100600",hash, path_g])
+    git_helper(["update-index", "--add", "--cacheinfo", "100600",hash, path_g], git_dir=GIT_DIR)
 
 
 def diff_index(tree="HEAD", git_dir=None):
@@ -231,12 +207,13 @@ def diff_index(tree="HEAD", git_dir=None):
 
     return d
 
-def diff_work(file=None, git_dir=None):
+def diff_work(file, git_dir=None):
     """Shows the difference between the index and the filesystem
     SInce we're operating without a real-work tree, we have to diff manually by:
     unpacking the file from the object database, and diffing it with the filesystem
     """
     files = ls_files(file=file, git_dir=git_dir)
+
 
 
 def fix_path_to_git(path):
@@ -253,6 +230,7 @@ def fix_path_to_git(path):
     return p[1:]
 
 def write_tree(git_dir=None):
+    "Creates and returns the hash to a tree created from the current index"
     hash = git_helper(["write-tree"], stdout=HASH, git_dir=git_dir)
     return hash
 
@@ -278,6 +256,10 @@ def ls_files(file=None, git_dir=None):
 def status(git_dir=None):
     "Prints out a git-like status"
     pass
+
+def usage():
+    "Prints out usage"
+
 
 GIT_DIR="/home/achin/.dotkeeper/repo"
 from pprint import pprint
