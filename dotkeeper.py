@@ -4,6 +4,7 @@ from git_helper import *
 import sys
 import inspect
 from optparse import OptionParser
+from ConfigParser import SafeConfigParser
 
 
 def cmd_init(base_dir="~/.dotkeeper/"):
@@ -25,10 +26,11 @@ def cmd_init(base_dir="~/.dotkeeper/"):
         print "Config file already exists!"
     else:
         # create new, empty config file.  this will be the first commit into the repo
+        cp = SafeConfigParser()
+        cp.add_section("dotkeeper")
+        cp.set("dotkeeper", "base_dir", base_dir)
         with open(config_file, "w") as f:
-            f.write("[dotkeeper]\n")
-            f.write("    base_dir=%s\n" % base_dir)
-            f.write("\n")
+            cp.write(f)
 
     add_to_index(config_file, git_dir=GIT_DIR)
 
@@ -43,7 +45,8 @@ def cmd_init(base_dir="~/.dotkeeper/"):
 
 def cmd_log():
     "Outputs a git log"
-    git_helper(["log"], git_dir="/home/achin/.dotkeeper/repo")
+    global GIT_DIR
+    git_helper(["log"], git_dir=GIT_DIR)
 
 def status(git_dir=None):
     "Prints out a git-like status"
@@ -59,6 +62,11 @@ if __name__ == "__main__":
         print usage()
         sys.exit(1)
     cmd = sys.argv[1]
+
+    cp = SafeConfigParser()
+    cp.read(os.path.expanduser('~/.dotkeeper/config'))
+    global GIT_DIR
+    GIT_DIR = os.path.join(cp.get("dotkeeper", "base_dir"), "repo")
     
     func = locals().get("cmd_" + cmd)
     if func is None:
