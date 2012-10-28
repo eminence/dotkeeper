@@ -6,12 +6,58 @@ import inspect
 from optparse import OptionParser
 from configparser import SafeConfigParser
 
+class Command(object):
+    registered = []
+    def __init__(self, func, name):
+        (self.args, self.varargs, self.varkw, self.defaults, self.kwonlyargs, self.kwonlydefaults, self.annotations) = \
+                inspect.getfullargspec(func)
+        #print args, varargs, kwargs, defaults
+        if self.defaults is None: self.defaults = []
+        self.name = name
+        self.func = func
 
-def cmd_init(base_dir="~/.dotkeeper/"):
-    """Initializes the dot keeper repo
+    def print_usage():
+        for cmd in Command.registered:
+            print("%-20s %s" % (cmd.name, cmd.func.__doc__))
 
-    --base_dir=<dir>  
-    """
+      
+    def get_command(name):
+        for cmd in Command.registered:
+            if cmd.name == name: return cmd
+        return None
+
+
+
+    def setup(self, parser):
+
+        parser.set_usage("%%prog %s [options]" % cmd)
+
+        offset = len(self.args) - len(self.defaults)
+        for x in range(len(self.args)):
+            thing = self.args[x]
+            d = {"dest": thing}
+
+            if (x-offset) >= 0:
+                default = self.defaults[x-offset]
+                d['default'] = default
+                d['help'] = self.annotations[thing]
+                if type(default) == bool:
+                    d['action'] = 'store_true'
+        
+            parser.add_option("--"+thing, **d)
+
+    def register(name):
+        "A decorator maker"
+        def deco(func):
+            "A decorator"
+            Command.registered.append(Command(func, name))
+            return func
+        return deco
+
+
+@Command.register("init")
+def cmd_init(base_dir:"Path to dotkeeper base directory"="~/.dotkeeper/"):
+    """Initializes the dot keeper repo"""
 
     base_dir = os.path.expanduser(base_dir)
     repo_dir = os.path.join(base_dir, "repo")
@@ -48,7 +94,7 @@ def cmd_log():
     global GIT_DIR
     git_helper(["log"], git_dir=GIT_DIR)
 
-def cmd_add(verbose=False, *args):
+def cmd_add(verbose=False, *args:"One or more paths"):
     "Adds a file to the index"
     global GIT_DIR
 
@@ -59,7 +105,8 @@ def cmd_add(verbose=False, *args):
             return
         add_to_index(file, git_dir=GIT_DIR)
 
-def cmd_status():
+@Command.register("status")
+def cmd_status(verbose:"Be more verbose"=False):
     "Shows the status of the index and the file system"
     global GIT_DIR
     r = diff_index(git_dir=GIT_DIR)
@@ -78,45 +125,25 @@ def usage():
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(usage())
+        Command.print_usage()
         sys.exit(1)
-    cmd = sys.argv[1]
+    cmd_s = sys.argv[1]
 
     cp = SafeConfigParser()
     cp.read(os.path.expanduser('~/.dotkeeper/config'))
     global GIT_DIR
     GIT_DIR = os.path.join(cp.get("dotkeeper", "base_dir"), "repo")
-    
-    func = locals().get("cmd_" + cmd)
-    if func is None:
-        print("Sorry, I don't know about", cmd)
-        sys.exit(1)
-
-    spec = inspect.getargspec(func)
-    args = spec[0]
-    varargs = spec[1]
-    kwargs = spec[2]
-    defaults = spec[3]
-    #print args, varargs, kwargs, defaults
-    if defaults is None: defaults = []
-
+  
+    cmd = Command.get_command(cmd_s)
+    print(cmd)
+    if cmd is None:
+        Command.print_usage()
     parser = OptionParser()
-    parser.set_usage("%%prog %s [options]" % cmd)
-
-    offset = len(args) - len(defaults)
-    for x in range(len(args)):
-        thing = args[x]
-        d = {"dest": thing}
-
-        if (x-offset) >= 0:
-            default = defaults[x-offset]
-            d['default'] = default
-            if type(default) == bool:
-                d['action'] = 'store_true'
-    
-        parser.add_option("--"+thing, **d)
-
+    cmd.setup(parser)
     (options, _args) = parser.parse_args()
+    sys.exit(0)
+
+
     d = {}
     for x in range(len(args)):
         thing = args[x]
