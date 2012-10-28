@@ -48,6 +48,25 @@ def cmd_log():
     global GIT_DIR
     git_helper(["log"], git_dir=GIT_DIR)
 
+def cmd_add(verbose=False, *args):
+    "Adds a file to the index"
+    global GIT_DIR
+
+    for file in args:
+        print "Added", file
+        if not os.path.exists(file):
+            print "File does not exist"
+            return
+        add_to_index(file, git_dir=GIT_DIR)
+
+def cmd_status():
+    "Shows the status of the index and the file system"
+    global GIT_DIR
+    r = diff_index(git_dir=GIT_DIR)
+    if r == {}:
+        # check LF
+        pass
+
 def status(git_dir=None):
     "Prints out a git-like status"
     pass
@@ -78,6 +97,7 @@ if __name__ == "__main__":
     varargs = spec[1]
     kwargs = spec[2]
     defaults = spec[3]
+    #print args, varargs, kwargs, defaults
     if defaults is None: defaults = []
 
     parser = OptionParser()
@@ -96,7 +116,7 @@ if __name__ == "__main__":
     
         parser.add_option("--"+thing, **d)
 
-    (options, _) = parser.parse_args()
+    (options, _args) = parser.parse_args()
     d = {}
     for x in range(len(args)):
         thing = args[x]
@@ -107,6 +127,13 @@ if __name__ == "__main__":
             sys.exit(1)
         d[thing] = parsed
 
-    func(**d)
+    #print "d is", d
+    if varargs is None:
+        func(**d)
+    else:
+        #print "_args is", repr(_args)
+        f_args = [d[x] for x in args]
+        f_args += _args[1:]
+        func(*f_args)
 
 
