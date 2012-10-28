@@ -27,7 +27,7 @@ def git_helper(args, git_dir=None, stdout=None, stdin=None):
         sout = subprocess.PIPE
 
     sin = None
-    if isinstance(stdin, basestring):
+    if isinstance(stdin, str):
         sin = subprocess.PIPE
 
     p = subprocess.Popen(["git", "--git-dir=" + git_dir] + args, stdout=sout, stdin=sin)
@@ -109,7 +109,7 @@ def mk_tree(contents):
     """
 
     tree_string = ""
-    for item in contents.itervalues():
+    for item in contents.values():
         item_ = dict()
         item_.update(item)
         if isinstance(item_['mode'], int):
@@ -125,7 +125,7 @@ def find_file(file, tree, git_dir=None):
     r = read_tree(tree, git_dir=git_dir)
 
     if not isinstance(file, list):
-        file = filter(bool, file.split("/"))
+        file = list(filter(bool, file.split("/")))
     if len(file) == 1:
         if file[0] in r:
             return r[file[0]]

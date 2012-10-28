@@ -1,6 +1,7 @@
 import pytest
 
 import sys
+import collections
 sys.path.append(".")
 import dotkeeper
 import tempfile
@@ -12,7 +13,7 @@ def test_docstrings():
     "Validate that all functions ahve docstrings"
     for thing in dir(dotkeeper):
         thething = getattr(dotkeeper, thing)
-        if callable(thething):
+        if isinstance(thething, collections.Callable):
             assert thething.__doc__ != None, repr(thing) + " is missing a doc string"
 
 def test_path_fixing():

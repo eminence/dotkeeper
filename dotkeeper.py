@@ -4,7 +4,7 @@ from git_helper import *
 import sys
 import inspect
 from optparse import OptionParser
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 
 
 def cmd_init(base_dir="~/.dotkeeper/"):
@@ -23,7 +23,7 @@ def cmd_init(base_dir="~/.dotkeeper/"):
 
     config_file = os.path.join(base_dir, "config")
     if os.path.exists(config_file):
-        print "Config file already exists!"
+        print("Config file already exists!")
     else:
         # create new, empty config file.  this will be the first commit into the repo
         cp = SafeConfigParser()
@@ -35,13 +35,13 @@ def cmd_init(base_dir="~/.dotkeeper/"):
     add_to_index(config_file, git_dir=GIT_DIR)
 
     root_tree = write_tree(git_dir=GIT_DIR)
-    print "root_tree is %r" % root_tree
+    print("root_tree is %r" % root_tree)
 
     commit_hash = commit_tree(root_tree, "Initial commit", parent=None, git_dir=GIT_DIR)
-    print "commit_hash is %r" % commit_hash
+    print("commit_hash is %r" % commit_hash)
     
     git_helper(["update-ref", "HEAD", commit_hash], git_dir=GIT_DIR)
-    print "Done!"
+    print("Done!")
 
 def cmd_log():
     "Outputs a git log"
@@ -53,9 +53,9 @@ def cmd_add(verbose=False, *args):
     global GIT_DIR
 
     for file in args:
-        print "Added", file
+        print("Added", file)
         if not os.path.exists(file):
-            print "File does not exist"
+            print("File does not exist")
             return
         add_to_index(file, git_dir=GIT_DIR)
 
@@ -73,12 +73,12 @@ def status(git_dir=None):
 
 def usage():
     "Prints out usage"
-    print "Usage info goes here"
+    print("Usage info goes here")
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print usage()
+        print(usage())
         sys.exit(1)
     cmd = sys.argv[1]
 
@@ -89,7 +89,7 @@ if __name__ == "__main__":
     
     func = locals().get("cmd_" + cmd)
     if func is None:
-        print "Sorry, I don't know about", cmd
+        print("Sorry, I don't know about", cmd)
         sys.exit(1)
 
     spec = inspect.getargspec(func)
@@ -123,7 +123,7 @@ if __name__ == "__main__":
         parsed = getattr(options, thing)
         if (x-offset < 0) and parsed is None:
             parser.print_help()
-            print "\nError: --%s is required" % thing
+            print("\nError: --%s is required" % thing)
             sys.exit(1)
         d[thing] = parsed
 
