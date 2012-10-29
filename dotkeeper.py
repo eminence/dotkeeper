@@ -3,7 +3,7 @@
 from git_helper import *
 import sys
 import inspect
-from optparse import OptionParser
+from argparse import ArgumentParser
 from configparser import SafeConfigParser
 
 class Command(object):
@@ -26,25 +26,45 @@ class Command(object):
             if cmd.name == name: return cmd
         return None
 
+    def call_with(self, from_cmd):
+        d = {}
+        for thing in self.args:
+            parsed = getattr(from_cmd, thing)
+            d[thing] = parsed
+
+        args = []
+        for thing in self.args:
+            args.append(getattr(from_cmd, thing))
+        if self.varargs is not None:
+            args += getattr(from_cmd, self.varargs)
+        self.func(*args)
 
 
-    def setup(self, parser):
 
-        parser.set_usage("%%prog %s [options]" % cmd)
+    def setup(self):
+
+        parser = ArgumentParser(prog=sys.argv[0] + " " + self.name,  description=self.func.__doc__)
 
         offset = len(self.args) - len(self.defaults)
         for x in range(len(self.args)):
             thing = self.args[x]
-            d = {"dest": thing}
+            d = {}
 
+            d['help'] = self.annotations[thing]
+            prefix=''
             if (x-offset) >= 0:
                 default = self.defaults[x-offset]
                 d['default'] = default
-                d['help'] = self.annotations[thing]
+                d['dest'] = thing
+                prefix='--'
                 if type(default) == bool:
                     d['action'] = 'store_true'
         
-            parser.add_option("--"+thing, **d)
+            print(prefix+thing, d)
+            parser.add_argument(prefix+thing,**d)
+        if self.varargs:
+            parser.add_argument(self.varargs,nargs='+', help=self.annotations[self.varargs])
+        return parser
 
     def register(name):
         "A decorator maker"
@@ -89,38 +109,32 @@ def cmd_init(base_dir:"Path to dotkeeper base directory"="~/.dotkeeper/"):
     git_helper(["update-ref", "HEAD", commit_hash], git_dir=GIT_DIR)
     print("Done!")
 
+@Command.register("log")
 def cmd_log():
     "Outputs a git log"
     global GIT_DIR
     git_helper(["log"], git_dir=GIT_DIR)
 
-def cmd_add(verbose=False, *args:"One or more paths"):
+@Command.register("add")
+def cmd_add(verbose:"Be verbose"=False, *file:"File to add"):
     "Adds a file to the index"
     global GIT_DIR
 
-    for file in args:
-        print("Added", file)
-        if not os.path.exists(file):
+    for f in file:
+        if verbose:
+            print("Added", f)
+        if not os.path.exists(f):
             print("File does not exist")
-            return
-        add_to_index(file, git_dir=GIT_DIR)
+        add_to_index(f, git_dir=GIT_DIR)
 
 @Command.register("status")
-def cmd_status(verbose:"Be more verbose"=False):
+def cmd_status(verbose:"Be verbose"=False):
     "Shows the status of the index and the file system"
     global GIT_DIR
     r = diff_index(git_dir=GIT_DIR)
     if r == {}:
         # check LF
         pass
-
-def status(git_dir=None):
-    "Prints out a git-like status"
-    pass
-
-def usage():
-    "Prints out usage"
-    print("Usage info goes here")
 
 
 if __name__ == "__main__":
@@ -135,32 +149,11 @@ if __name__ == "__main__":
     GIT_DIR = os.path.join(cp.get("dotkeeper", "base_dir"), "repo")
   
     cmd = Command.get_command(cmd_s)
-    print(cmd)
     if cmd is None:
         Command.print_usage()
-    parser = OptionParser()
-    cmd.setup(parser)
-    (options, _args) = parser.parse_args()
-    sys.exit(0)
-
-
-    d = {}
-    for x in range(len(args)):
-        thing = args[x]
-        parsed = getattr(options, thing)
-        if (x-offset < 0) and parsed is None:
-            parser.print_help()
-            print("\nError: --%s is required" % thing)
-            sys.exit(1)
-        d[thing] = parsed
-
-    #print "d is", d
-    if varargs is None:
-        func(**d)
-    else:
-        #print "_args is", repr(_args)
-        f_args = [d[x] for x in args]
-        f_args += _args[1:]
-        func(*f_args)
+        sys.exit(0)
+    parser = cmd.setup()
+    _args = parser.parse_args(sys.argv[2:])
+    cmd.call_with(_args)
 
 
