@@ -158,6 +158,18 @@ def cmd_diff(verbose:"Be verbose"=False, *file:"File to diff"):
         p.wait()
         os.unlink(index_file)
 
+@Command.register("commit")
+def cmd_commit(msg:"Commit message"=None, verbose:"Be verbose"=False):
+    "Commits the index"
+    tree = write_tree(git_dir=GIT_DIR)
+    if verbose:
+        print("New tree is", tree)
+    commit = commit_tree(tree, msg, git_dir=GIT_DIR)
+    if verbose:
+        print("New commit is", commit)
+
+    git_helper(["update-ref", "HEAD", commit], git_dir=GIT_DIR)
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
