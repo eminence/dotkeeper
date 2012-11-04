@@ -29,6 +29,7 @@ def git_helper(args, git_dir=None, stdout=None, stdin=None):
     sin = None
     if isinstance(stdin, str):
         sin = subprocess.PIPE
+        stdin = stdin.encode()
 
     p = subprocess.Popen(["git", "--git-dir=" + git_dir] + args, stdout=sout, stdin=sin)
 
@@ -42,21 +43,23 @@ def git_helper(args, git_dir=None, stdout=None, stdin=None):
     if stdout == HASH:
         # the output of this git command is expected to return a hash.  let's grab it and return it
         hash = outdata.strip()
-        return hash
+        return hash.decode()
     if stdout == STR:
-        return outdata
+        return outdata.decode()
 
 
-def hash_object(filename=None, contents=None, git_dir=None):
+def hash_object(filename=None, contents=None, write=True, git_dir=None):
     """
     Accepts either a filename or a string, and hashed the object, adding it
     to the git object db, and returns the hash identified
     """
 
+    args = ["hash-object"]
+    if write: args += ["-w"]
     if filename and contents is None:
-        return git_helper(["hash-object", "-w", filename], stdout=HASH, git_dir=git_dir)
+        return git_helper(args +[filename], stdout=HASH, git_dir=git_dir)
     elif filename is None and contents is not None:
-        return git_helper(["hash-object", "-w", "--stdin"], stdout=HASH, stdin=contents, git_dir=git_dir)
+        return git_helper(args +["--stdin"], stdout=HASH, stdin=contents, git_dir=git_dir)
     else:
         raise GitException("no filename, and no contents")
 
@@ -64,7 +67,7 @@ def hash_object(filename=None, contents=None, git_dir=None):
 def read_tree(tree, git_dir=None):
     "Read the contents of a git tree and returns a dictionary (see mk_tree for a description)"
     data = git_helper(["ls-tree", tree], stdout=HASH, git_dir=git_dir)
-    matcher = re.compile("^(\\S+) (\\S+) (\\S+)\t(\S+)$")
+    matcher = re.compile(b"^(\\S+) (\\S+) (\\S+)\t(\S+)$")
     d = dict()
     for line in data.splitlines():
         m = matcher.match(line)
@@ -74,7 +77,7 @@ def read_tree(tree, git_dir=None):
     return d
         
 
-def unpack_object(hash, git_dir=None):
+def unpack_file(hash, git_dir=None):
     "Unpacks a blob into a temporary file, and returns that filename"
     filename = git_helper(["unpack-file", hash], stdout=HASH, git_dir=git_dir)
     return os.path.abspath(filename)
@@ -195,10 +198,18 @@ def fix_path_to_git(path):
     if p.startswith(home):
         if not home.endswith(user):
             raise Exception("bad home/user")
-        homeroot = home[1:-1-len(user)]
-        return homeroot + p[len(home):]
+        return "$HOME" + p[len(home):]
 
     return p[1:]
+
+def fix_git_to_path(path):
+    "Takes a path from a git tree and turns it into a file-system path"
+    home = os.environ['HOME']
+    user = os.environ['USER']
+    if path.startswith("$HOME"):
+        return home + path[5:]
+    return "/" + path
+
 
 def write_tree(git_dir=None):
     "Creates and returns the hash to a tree created from the current index"

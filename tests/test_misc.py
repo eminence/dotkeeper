@@ -18,5 +18,8 @@ def test_docstrings():
 
 def test_path_fixing():
     "Tests the git-path fixing algorithm"
-    assert(dotkeeper.fix_path_to_git("/home/achin/foo") == "home/foo")
+    assert(dotkeeper.fix_path_to_git(os.path.join(os.environ['HOME'], "foo")) == "$HOME/foo")
     assert(dotkeeper.fix_path_to_git("/etc/passwd") == "etc/passwd")
+
+    assert(dotkeeper.fix_git_to_path("etc/passwd") == "/etc/passwd")
+    assert(dotkeeper.fix_git_to_path("$HOME/foo") == os.path.join(os.environ['HOME'], "foo"))

@@ -4,9 +4,12 @@ from git_helper import *
 import sys
 import inspect
 from argparse import ArgumentParser
-from configparser import SafeConfigParser
+from configparser import ConfigParser
+from pprint import pprint
+import subprocess
 
 class Command(object):
+    """Manages the glue that connects the command line parser to individual functions"""
     registered = []
     def __init__(self, func, name):
         (self.args, self.varargs, self.varkw, self.defaults, self.kwonlyargs, self.kwonlydefaults, self.annotations) = \
@@ -60,7 +63,7 @@ class Command(object):
                 if type(default) == bool:
                     d['action'] = 'store_true'
         
-            print(prefix+thing, d)
+            #print(prefix+thing, d)
             parser.add_argument(prefix+thing,**d)
         if self.varargs:
             parser.add_argument(self.varargs,nargs='+', help=self.annotations[self.varargs])
@@ -132,9 +135,28 @@ def cmd_status(verbose:"Be verbose"=False):
     "Shows the status of the index and the file system"
     global GIT_DIR
     r = diff_index(git_dir=GIT_DIR)
-    if r == {}:
-        # check LF
-        pass
+    for item in r.values():
+        if item['treeHash'] == '0000000000000000000000000000000000000000':
+            print("%s - add" % fix_git_to_path(item['name']))
+    index_files = ls_files(git_dir=GIT_DIR)
+    for file in index_files.values():
+        #compare this hash to the work hash
+        fspath = fix_git_to_path(file['name'])
+        workhash = hash_object(filename=fspath, write=False, git_dir=GIT_DIR)
+        if workhash != file['hash']:
+            print("%s - modified" % fspath)
+
+@Command.register("diff")
+def cmd_diff(verbose:"Be verbose"=False, *file:"File to diff"):
+    "Diffs the file system with the index"
+    index_files = ls_files(git_dir=GIT_DIR)
+    for item in file:
+        gitpath = fix_path_to_git(item)
+        blob = index_files[gitpath]['hash']
+        index_file = unpack_file(blob, git_dir=GIT_DIR)
+        p = subprocess.Popen(["diff", index_file, item])
+        p.wait()
+        os.unlink(index_file)
 
 
 if __name__ == "__main__":
@@ -143,10 +165,10 @@ if __name__ == "__main__":
         sys.exit(1)
     cmd_s = sys.argv[1]
 
-    cp = SafeConfigParser()
+    cp = ConfigParser()
     cp.read(os.path.expanduser('~/.dotkeeper/config'))
     global GIT_DIR
-    GIT_DIR = os.path.join(cp.get("dotkeeper", "base_dir"), "repo")
+    GIT_DIR = os.path.join(cp.get("dotkeeper", "base_dir", fallback=os.path.expanduser("~/.dotkeeper/repo")), "repo")
   
     cmd = Command.get_command(cmd_s)
     if cmd is None:
