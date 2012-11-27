@@ -95,7 +95,7 @@ def cmd_init(base_dir:"Path to dotkeeper base directory"="~/.dotkeeper/"):
         print("Config file already exists!")
     else:
         # create new, empty config file.  this will be the first commit into the repo
-        cp = SafeConfigParser()
+        cp = ConfigParser()
         cp.add_section("dotkeeper")
         cp.set("dotkeeper", "base_dir", base_dir)
         with open(config_file, "w") as f:
