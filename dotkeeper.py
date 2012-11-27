@@ -154,7 +154,7 @@ def cmd_diff(verbose:"Be verbose"=False, *file:"File to diff"):
         gitpath = fix_path_to_git(item)
         blob = index_files[gitpath]['hash']
         index_file = unpack_file(blob, git_dir=GIT_DIR)
-        p = subprocess.Popen(["diff", index_file, item])
+        p = subprocess.Popen(["vimdiff", index_file, item])
         p.wait()
         os.unlink(index_file)
 
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     cp = ConfigParser()
     cp.read(os.path.expanduser('~/.dotkeeper/config'))
     global GIT_DIR
-    GIT_DIR = os.path.join(cp.get("dotkeeper", "base_dir", fallback=os.path.expanduser("~/.dotkeeper/repo")), "repo")
+    GIT_DIR = os.path.expanduser(os.path.join(cp.get("dotkeeper", "base_dir", fallback="~/.dotkeeper/repo"), "repo"))
   
     cmd = Command.get_command(cmd_s)
     if cmd is None:
